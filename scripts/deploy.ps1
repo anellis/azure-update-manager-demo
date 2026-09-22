@@ -1,60 +1,47 @@
-<#
-.SYNOPSIS
-  Deploys the Azure Update Manager demo environment end-to-end.
-.DESCRIPTION
-  Prompts for VM credentials and alert email (never stored in the repo), deploys the Bicep
-  orchestrator at subscription scope, then publishes the pre/post patch stub runbook content.
-#>
 [CmdletBinding()]
 param(
     [string]$SubscriptionId = 'c69f7b0e-bf5b-4e01-b8c9-5a9fd00dae85',
-    [string]$Location = 'eastus2',
-    [string]$ResourceGroupName = 'rg-aum-demo-eastus2',
-    [string]$NamePrefix = 'aumdemo'
+        [string]$TenantId = '46d3e391-bd8a-44cb-a6f7-10ff4b3405ef',
+        [string]$Location = 'eastus2',
+        [string]$ParameterFile = "$PSScriptRoot\..\infra\parameters\demo.bicepparam"
 )
 
 $ErrorActionPreference = 'Stop'
-$repoRoot = Split-Path -Parent $PSScriptRoot
+$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
+$start = Get-Date
 
+function Write-Step([string]$Message) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $Message" -ForegroundColor Cyan }
+function Write-Ok([string]$Message) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] OK  $Message" -ForegroundColor Green }
+
+Write-Step 'Checking Azure CLI login.'
+$account = az account show --query '{tenantId:tenantId,id:id}' -o json 2>$null | ConvertFrom-Json
+if (-not $account) {
+    Write-Host "Run: az login --tenant $TenantId" -ForegroundColor Yellow
+    throw 'Azure CLI is not authenticated.'
+}
+if ($account.tenantId -ne $TenantId) { throw "Logged-in tenant '$($account.tenantId)' does not match '$TenantId'." }
 az account set --subscription $SubscriptionId
+Write-Ok "Using tenant $TenantId and subscription $SubscriptionId."
 
-if (-not $env:AUM_ADMIN_USERNAME) { $env:AUM_ADMIN_USERNAME = 'aumdemoadmin' }
-if (-not $env:AUM_ADMIN_PASSWORD) {
-    $securePwd = Read-Host -Prompt 'VM local admin password (Windows + Linux fallback)' -AsSecureString
-    $env:AUM_ADMIN_PASSWORD = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePwd))
-}
-if (-not $env:AUM_SSH_PUBLIC_KEY) {
-    $defaultKeyPath = Join-Path $HOME '.ssh\id_rsa.pub'
-    if (Test-Path $defaultKeyPath) {
-        $env:AUM_SSH_PUBLIC_KEY = Get-Content $defaultKeyPath -Raw
-    } else {
-        Write-Host "No SSH public key found at $defaultKeyPath — generate one with 'ssh-keygen' or set `$env:AUM_SSH_PUBLIC_KEY." -ForegroundColor Yellow
-    }
-}
-if (-not $env:AUM_ALERT_EMAIL) {
-    $env:AUM_ALERT_EMAIL = Read-Host -Prompt 'Email address for the failed-patch-install alert'
+Write-Step 'Registering required resource providers.'
+@('Microsoft.Compute','Microsoft.Network','Microsoft.Insights','Microsoft.Maintenance','Microsoft.PolicyInsights','Microsoft.Automation','Microsoft.OperationalInsights') | ForEach-Object {
+    az provider register --namespace $_ --wait | Out-Null
+    Write-Ok "Registered $_"
 }
 
-Write-Host "Deploying resource group + all modules (this can take 15-25 minutes)..." -ForegroundColor Cyan
-az deployment sub create `
-    --location $Location `
-    --template-file (Join-Path $repoRoot 'bicep/main.bicep') `
-    --parameters (Join-Path $repoRoot 'bicep/main.bicepparam') `
-    --parameters location=$Location resourceGroupName=$ResourceGroupName namePrefix=$NamePrefix
+Write-Step 'Checking required deployment environment variables.'
+@('AUM_ADMIN_PUBLIC_IP_CIDR','AUM_ALERT_EMAIL','AUM_ADMIN_PASSWORD') | ForEach-Object {
+    if (-not [Environment]::GetEnvironmentVariable($_)) { throw "Set environment variable $_ before deploying. No secret is read from the repository." }
+}
 
-Write-Host "Publishing pre/post patch stub runbook content..." -ForegroundColor Cyan
-$automationAccountName = az deployment sub show --name main --query "properties.outputs.automationAccountName.value" -o tsv 2>$null
-if (-not $automationAccountName) { $automationAccountName = "$NamePrefix-aa" }
+Write-Step "Running subscription what-if from $ParameterFile."
+az deployment sub what-if --location $Location --parameters $ParameterFile --template-file (Join-Path $repoRoot 'infra\main.bicep')
+Write-Ok 'What-if completed.'
 
-az automation runbook replace-content `
-    --resource-group $ResourceGroupName `
-    --automation-account-name $automationAccountName `
-    --name 'PrePostPatch-Stub' `
-    --content "@$(Join-Path $repoRoot 'automation/PrePostPatch-Stub.ps1')"
+Write-Step 'Starting subscription deployment.'
+az deployment sub create --name "aumdemo-$(Get-Date -Format 'yyyyMMddHHmmss')" --location $Location --parameters $ParameterFile --template-file (Join-Path $repoRoot 'infra\main.bicep')
+Write-Ok 'Deployment completed.'
 
-az automation runbook publish `
-    --resource-group $ResourceGroupName `
-    --automation-account-name $automationAccountName `
-    --name 'PrePostPatch-Stub'
-
-Write-Host "Deployment complete. Next: run scripts/seed-noncompliance.ps1 the night before the demo." -ForegroundColor Green
+$elapsed = (Get-Date) - $start
+Write-Host ("Total elapsed: {0:hh\:mm\:ss}" -f $elapsed) -ForegroundColor Green
+Write-Host 'Run scripts/validate.ps1 next.' -ForegroundColor Green
