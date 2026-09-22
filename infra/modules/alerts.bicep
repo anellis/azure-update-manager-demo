@@ -39,7 +39,7 @@ resource failedPatchAlert 'Microsoft.Insights/activityLogAlerts@2020-10-01' = {
         }
         {
           field: 'operationName'
-          equals: 'Microsoft.Maintenance/applyUpdates/action'
+          equals: 'Microsoft.Maintenance/applyUpdates/write'
         }
         {
           field: 'status'

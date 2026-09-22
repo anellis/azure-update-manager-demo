@@ -142,9 +142,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-11-01' = {
         patchSettings: {
           patchMode: patchMode
           assessmentMode: assessmentMode
-          automaticByPlatformSettings: {
+          automaticByPlatformSettings: patchMode == 'AutomaticByPlatform' ? {
             bypassPlatformSafetyChecksOnUserSchedule: bypassPlatformSafetyChecksOnUserSchedule
-          }
+          } : null
         }
       }
     }

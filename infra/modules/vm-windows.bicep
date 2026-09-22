@@ -105,7 +105,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-11-01' = {
       }
     }
     osProfile: {
-      computerName: vmName
+      computerName: take(replace(vmName, '-', ''), 15)
       adminUsername: adminUsername
       adminPassword: adminPassword
       windowsConfiguration: {
@@ -115,9 +115,9 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-11-01' = {
           patchMode: patchMode
           assessmentMode: assessmentMode
           enableHotpatching: false
-          automaticByPlatformSettings: {
+          automaticByPlatformSettings: patchMode == 'AutomaticByPlatform' ? {
             bypassPlatformSafetyChecksOnUserSchedule: bypassPlatformSafetyChecksOnUserSchedule
-          }
+          } : null
         }
       }
     }

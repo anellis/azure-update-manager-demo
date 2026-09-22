@@ -21,25 +21,29 @@ if (-not $account) {
 }
 if ($account.tenantId -ne $TenantId) { throw "Logged-in tenant '$($account.tenantId)' does not match '$TenantId'." }
 az account set --subscription $SubscriptionId
+if ($LASTEXITCODE -ne 0) { throw 'Failed to select the target subscription.' }
 Write-Ok "Using tenant $TenantId and subscription $SubscriptionId."
 
 Write-Step 'Registering required resource providers.'
 @('Microsoft.Compute','Microsoft.Network','Microsoft.Insights','Microsoft.Maintenance','Microsoft.PolicyInsights','Microsoft.Automation','Microsoft.OperationalInsights') | ForEach-Object {
     az provider register --namespace $_ --wait | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Failed to register provider $_." }
     Write-Ok "Registered $_"
 }
 
 Write-Step 'Checking required deployment environment variables.'
-@('AUM_ADMIN_PUBLIC_IP_CIDR','AUM_ALERT_EMAIL','AUM_ADMIN_PASSWORD') | ForEach-Object {
+@('AUM_ADMIN_PUBLIC_IP_CIDR','AUM_ALERT_EMAIL','AUM_ADMIN_PASSWORD','AUM_SSH_PUBLIC_KEY') | ForEach-Object {
     if (-not [Environment]::GetEnvironmentVariable($_)) { throw "Set environment variable $_ before deploying. No secret is read from the repository." }
 }
 
 Write-Step "Running subscription what-if from $ParameterFile."
 az deployment sub what-if --location $Location --parameters $ParameterFile --template-file (Join-Path $repoRoot 'infra\main.bicep')
+if ($LASTEXITCODE -ne 0) { throw 'What-if failed; deployment was not started.' }
 Write-Ok 'What-if completed.'
 
 Write-Step 'Starting subscription deployment.'
 az deployment sub create --name "aumdemo-$(Get-Date -Format 'yyyyMMddHHmmss')" --location $Location --parameters $ParameterFile --template-file (Join-Path $repoRoot 'infra\main.bicep')
+if ($LASTEXITCODE -ne 0) { throw 'Deployment failed. Query deployment operations before retrying.' }
 Write-Ok 'Deployment completed.'
 
 $elapsed = (Get-Date) - $start

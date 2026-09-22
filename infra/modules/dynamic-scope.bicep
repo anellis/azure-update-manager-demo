@@ -14,7 +14,7 @@ param environments array
 
 resource dynamicAssignments 'Microsoft.Maintenance/configurationAssignments@2023-04-01' = [for (configurationId, index) in maintenanceConfigurationIds: {
   name: 'dynamic-${index}-${uniqueString(configurationId, resourceGroupName)}'
-  location: location
+  location: 'global'
   properties: {
     maintenanceConfigurationId: configurationId
     filter: {
