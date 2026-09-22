@@ -32,8 +32,11 @@ Write-Step 'Registering required resource providers.'
 }
 
 Write-Step 'Checking required deployment environment variables.'
-@('AUM_ADMIN_PUBLIC_IP_CIDR','AUM_ALERT_EMAIL','AUM_ADMIN_PASSWORD','AUM_SSH_PUBLIC_KEY') | ForEach-Object {
+@('AUM_ADMIN_PUBLIC_IP_CIDR','AUM_ALERT_EMAIL','AUM_ADMIN_PASSWORD') | ForEach-Object {
     if (-not [Environment]::GetEnvironmentVariable($_)) { throw "Set environment variable $_ before deploying. No secret is read from the repository." }
+}
+if ($env:AUM_LINUX_AUTHENTICATION_TYPE -eq 'sshPublicKey' -and -not $env:AUM_SSH_PUBLIC_KEY) {
+    throw 'AUM_SSH_PUBLIC_KEY is required when AUM_LINUX_AUTHENTICATION_TYPE=sshPublicKey.'
 }
 
 Write-Step "Running subscription what-if from $ParameterFile."

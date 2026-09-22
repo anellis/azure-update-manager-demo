@@ -10,11 +10,10 @@ param adminPublicIpCidr = readEnvironmentVariable('AUM_ADMIN_PUBLIC_IP_CIDR')
 param alertEmail = readEnvironmentVariable('AUM_ALERT_EMAIL')
 param adminPassword = readEnvironmentVariable('AUM_ADMIN_PASSWORD')
 param sshPublicKey = readEnvironmentVariable('AUM_SSH_PUBLIC_KEY', '')
-param linuxAuthenticationType = readEnvironmentVariable('AUM_LINUX_AUTHENTICATION_TYPE', 'sshPublicKey')
+param linuxAuthenticationType = readEnvironmentVariable('AUM_LINUX_AUTHENTICATION_TYPE', 'password')
 param deployBastionDeveloper = false
 param windowsImageVersion = 'latest'
 param ubuntuImageVersion = 'latest'
-param rhelImageVersion = 'latest'
 param schedules = [
   {
     name: 'Prod-Monthly-Sunday-2AM'
@@ -46,7 +45,7 @@ param schedules = [
     windowsClassifications: [
       'Critical'
       'Security'
-      'Other'
+      'Updates'
     ]
     linuxClassifications: [
       'Critical'
