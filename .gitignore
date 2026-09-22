@@ -1,0 +1,31 @@
+# Bicep
+*.bicepparam.local
+.bicep/
+
+# Azure CLI / tooling
+.azure/
+
+# Node (tooling scripts, if any are added later)
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# VS Code
+.vscode/*
+!.vscode/extensions.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Secrets / local overrides — never commit
+*.env
+.env
+*.pfx
+*.pem
+local.settings.json
+
+# Deployment output
+outputs/
+*.log

@@ -1,0 +1,55 @@
+name: Validate Bicep
+
+# Required repo secrets for OIDC login (no client secret is ever stored):
+#   AZURE_CLIENT_ID        - App registration (or user-assigned managed identity) client ID
+#   AZURE_TENANT_ID        - 46d3e391-bd8a-44cb-a6f7-10ff4b3405ef
+#   AZURE_SUBSCRIPTION_ID  - c69f7b0e-bf5b-4e01-b8c9-5a9fd00dae85
+# The app registration needs a federated credential trusting this repo/branch
+# (Entra ID > App registrations > Certificates & secrets > Federated credentials),
+# and a role assignment (Reader is sufficient for `--what-if`) on the target subscription/RG.
+
+on:
+  pull_request:
+    paths:
+      - "bicep/**"
+  push:
+    branches: [main]
+    paths:
+      - "bicep/**"
+
+permissions:
+  contents: read
+  id-token: write # required for OIDC federated login
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Bicep CLI
+        run: az bicep install && az bicep version
+
+      - name: Bicep build (lint)
+        run: az bicep build --file bicep/main.bicep --stdout > /dev/null
+
+      - name: Azure login (OIDC)
+        if: ${{ vars.AZURE_CLIENT_ID != '' || secrets.AZURE_CLIENT_ID != '' }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-if against a scratch resource group
+        if: ${{ github.event_name == 'pull_request' && (vars.AZURE_CLIENT_ID != '' || secrets.AZURE_CLIENT_ID != '') }}
+        run: |
+          az deployment sub what-if \
+            --location eastus2 \
+            --template-file bicep/main.bicep \
+            --parameters bicep/main.bicepparam \
+            --parameters adminUsername=ci-placeholder adminPassword="$(openssl rand -base64 24)" alertEmail=ci@example.invalid
+
+      - name: Skip notice
+        if: ${{ vars.AZURE_CLIENT_ID == '' && secrets.AZURE_CLIENT_ID == '' }}
+        run: echo "AZURE_CLIENT_ID not configured — skipping OIDC login and what-if. Lint-only run."
