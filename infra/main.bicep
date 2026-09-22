@@ -137,6 +137,9 @@ module staticAssignment 'modules/static-assignment.bicep' = {
     vmName: 'aumdemo-rhel9-nonprod-01'
     maintenanceConfigurationId: maintenance.outputs.configurationIds[1]
   }
+  dependsOn: [
+    vms
+  ]
 }
 
 module policy 'modules/policy.bicep' = {
@@ -146,6 +149,9 @@ module policy 'modules/policy.bicep' = {
     location: location
     namePrefix: namePrefix
   }
+  dependsOn: [
+    vms
+  ]
 }
 
 module alerts 'modules/alerts.bicep' = {
