@@ -30,7 +30,6 @@ resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 resource dataCollectionRule 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
   name: '${namePrefix}-dcr'
   location: location
-  kind: 'All'
   tags: tags
   properties: {
     dataSources: {
@@ -45,18 +44,6 @@ resource dataCollectionRule 'Microsoft.Insights/dataCollectionRules@2023-03-11' 
             '\\Processor(_Total)\\% Processor Time'
             '\\Memory\\% Committed Bytes In Use'
             '\\LogicalDisk(_Total)\\% Free Space'
-          ]
-        }
-      ]
-      windowsEventLogs: [
-        {
-          name: 'demo-windows-events'
-          streams: [
-            'Microsoft-WindowsEvent'
-          ]
-          xPathQueries: [
-            'System!*[System[(Level=1 or Level=2 or Level=3)]]'
-            'Application!*[System[(Level=1 or Level=2 or Level=3)]]'
           ]
         }
       ]
@@ -94,7 +81,6 @@ resource dataCollectionRule 'Microsoft.Insights/dataCollectionRules@2023-03-11' 
       {
         streams: [
           'Microsoft-Perf'
-          'Microsoft-WindowsEvent'
           'Microsoft-Syslog'
         ]
         destinations: [

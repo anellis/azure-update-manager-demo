@@ -207,7 +207,6 @@ module maintenanceConfigs 'modules/maintenance-configs.bicep' = {
   scope: rg
   params: {
     location: location
-    namePrefix: namePrefix
     tags: tags
   }
 }
@@ -226,6 +225,7 @@ module staticScope 'modules/static-scope-assignment.bicep' = {
   name: 'deploy-static-scope'
   scope: rg
   params: {
+    location: location
     vmName: linuxVms[2].name
     maintenanceConfigurationId: maintenanceConfigs.outputs.prodMonthlyId
   }
@@ -249,6 +249,7 @@ module policy 'modules/policy-periodic-assessment.bicep' = {
 
 module resourceGraphQueries 'modules/resourcegraph-queries.bicep' = {
   name: 'deploy-arg-queries'
+  scope: rg
   params: {
     resourceGroupName: resourceGroupName
     tags: tags

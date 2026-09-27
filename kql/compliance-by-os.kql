@@ -1,0 +1,5 @@
+// Log Analytics saved search. Update Manager compliance remains authoritative in Azure Resource Graph.
+// This query is useful when the Heartbeat table is populated; it is intentionally labeled as a telemetry view.
+Heartbeat
+| summarize Machines=dcount(Computer), LastSeen=max(TimeGenerated) by OSType
+| order by OSType asc

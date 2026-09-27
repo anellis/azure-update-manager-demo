@@ -13,9 +13,6 @@ param windowsImageVersion string = 'latest'
 @description('Ubuntu 22.04 image version.')
 param ubuntuImageVersion string = 'latest'
 
-@description('RHEL 9 image version.')
-param rhelImageVersion string = 'latest'
-
 @description('Local administrator username.')
 param adminUsername string
 
@@ -93,20 +90,16 @@ var linuxVms = [
     plan: null
   }
   {
-    name: 'aumdemo-rhel9-nonprod-01'
-    publisher: 'RedHat'
-    offer: 'RHEL'
-    sku: '9-lvm-gen2'
-    version: rhelImageVersion
+    name: 'aumdemo-ubuntu22-nonprod-03'
+    publisher: 'Canonical'
+    offer: '0001-com-ubuntu-server-jammy'
+    sku: '22_04-lts-gen2'
+    version: ubuntuImageVersion
     patchGroup: 'NonProd-AssessmentOff'
     patchMode: 'ImageDefault'
     assessmentMode: 'ImageDefault'
     bypass: false
-    plan: {
-      name: '9-lvm-gen2'
-      product: 'RHEL'
-      publisher: 'RedHat'
-    }
+    plan: null
   }
 ]
 
@@ -175,7 +168,7 @@ output allVmIds array = [
   linux[1].outputs.vmId
   linux[2].outputs.vmId
 ]
-output rhelVmId string = linux[2].outputs.vmId
+output intentionallyUnassessedVmId string = linux[2].outputs.vmId
 output allVmPortalUrls array = [
   windows[0].outputs.vmPortalUrl
   windows[1].outputs.vmPortalUrl

@@ -1,5 +1,10 @@
 # Azure Update Manager Demo — Plan
 
+> **Historical design document:** This was the original eight-VM plan. The deployed and supported
+> implementation now uses six VMs under `infra/`. For current architecture, cost, deployment, and
+> teardown details, use `README.md` and `docs/ARCHITECTURE.md`; do not treat the inventory below as
+> the current state.
+
 Self-contained, Bicep-deployable Azure Update Manager demo environment for a live technical demo.
 Everything lives in one resource group and is deletable with one command.
 

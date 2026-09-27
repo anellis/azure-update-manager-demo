@@ -2,6 +2,9 @@
 @description('Name of the VM to assign directly (e.g. vm-rhel9-prod).')
 param vmName string
 
+@description('Azure region for the assignment resource.')
+param location string
+
 @description('Resource ID of the maintenance configuration to assign (e.g. Prod-Monthly-Sunday-2AM).')
 param maintenanceConfigurationId string
 
@@ -11,7 +14,7 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-07-01' existing = {
 
 resource staticAssignment 'Microsoft.Maintenance/configurationAssignments@2023-04-01' = {
   name: 'staticscope-${vmName}'
-  location: vm.location
+  location: location
   scope: vm
   properties: {
     maintenanceConfigurationId: maintenanceConfigurationId

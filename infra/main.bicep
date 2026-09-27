@@ -48,9 +48,6 @@ param windowsImageVersion string = 'latest'
 @description('Ubuntu image version.')
 param ubuntuImageVersion string = 'latest'
 
-@description('RHEL image version.')
-param rhelImageVersion string = 'latest'
-
 @description('Maintenance schedules passed to the maintenance module.')
 param schedules array
 
@@ -89,7 +86,6 @@ module vms 'modules/vms.bicep' = {
     subnetId: network.outputs.vmSubnetId
     windowsImageVersion: windowsImageVersion
     ubuntuImageVersion: ubuntuImageVersion
-    rhelImageVersion: rhelImageVersion
     adminUsername: 'aumdemoadmin'
     adminPassword: adminPassword
     sshPublicKey: sshPublicKey
@@ -134,7 +130,8 @@ module staticAssignment 'modules/static-assignment.bicep' = {
   name: 'static-assignment'
   scope: resourceGroup
   params: {
-    vmName: 'aumdemo-rhel9-nonprod-01'
+    location: location
+    vmName: 'aumdemo-ubuntu22-nonprod-01'
     maintenanceConfigurationId: maintenance.outputs.configurationIds[1]
   }
   dependsOn: [

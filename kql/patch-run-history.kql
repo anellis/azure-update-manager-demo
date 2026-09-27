@@ -1,0 +1,5 @@
+// Activity Log view of Update Manager patch operations.
+AzureActivity
+| where OperationNameValue =~ 'MICROSOFT.MAINTENANCE/APPLYUPDATES/WRITE'
+| project TimeGenerated, ResourceGroup, ResourceId, ActivityStatusValue, Caller, CorrelationId
+| order by TimeGenerated desc

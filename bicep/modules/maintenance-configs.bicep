@@ -4,9 +4,6 @@
 @description('Azure region.')
 param location string
 
-@description('Resource name prefix.')
-param namePrefix string
-
 @description('Tags to apply to all resources.')
 param tags object = {}
 

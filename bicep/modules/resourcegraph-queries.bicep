@@ -2,7 +2,7 @@
 // Validate exact column names in Resource Graph Explorer before the demo — these tables
 // (patchassessmentresources / patchinstallationresources) are Update-Manager-specific and
 // their schema has changed across API versions.
-targetScope = 'subscription'
+targetScope = 'resourceGroup'
 
 @description('Resource group name containing the demo VMs, used to scope queries.')
 param resourceGroupName string
@@ -25,7 +25,6 @@ patchassessmentresources
 | project vmName, status = properties.status, lastAssessedTime = properties.lastModifiedDateTime, criticalCount = properties.availablePatchCountByClassification.critical, securityCount = properties.availablePatchCountByClassification.security
 | order by vmName asc
 ''', resourceGroupName)
-    resultFormat: 'table'
   }
 }
 
@@ -45,7 +44,6 @@ patchassessmentresources
 | project vmName, criticalCount, securityCount, status = properties.status
 | order by criticalCount desc, securityCount desc
 ''', resourceGroupName)
-    resultFormat: 'table'
   }
 }
 
@@ -63,7 +61,6 @@ patchinstallationresources
 | project vmName, status = properties.status, startTime = properties.startDateTime, installedPatchCount = properties.installedPatchCount, rebootStatus = properties.rebootStatus
 | order by startTime desc
 ''', resourceGroupName)
-    resultFormat: 'table'
   }
 }
 
@@ -87,6 +84,5 @@ Resources
 | project vmName, environment, status
 | order by environment asc, vmName asc
 ''', resourceGroupName)
-    resultFormat: 'table'
   }
 }

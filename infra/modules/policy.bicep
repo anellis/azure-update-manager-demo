@@ -5,7 +5,7 @@ param location string
 param namePrefix string
 
 @description('Built-in initiative ID that configures periodic checking for missing system updates on Azure VMs.')
-param policyDefinitionId string = '/providers/Microsoft.Authorization/policySetDefinitions/59efceea-0c96-497e-a4a1-4eb2290dac15'
+param policyDefinitionId string = '/providers/Microsoft.Authorization/policyDefinitions/59efceea-0c96-497e-a4a1-4eb2290dac15'
 
 @description('Role definition IDs granted to the policy assignment identity for remediation.')
 param roleDefinitionIds array = [

@@ -1,0 +1,6 @@
+// Requires the Update table to be connected to this workspace.
+// If Update is not enabled, use Update Manager > Machines / Azure Resource Graph for authoritative counts.
+Update
+| where Classification in~ ('Critical', 'Security')
+| summarize MissingUpdates=count(), Machines=dcount(Computer) by Classification, Computer
+| order by Classification asc, MissingUpdates desc

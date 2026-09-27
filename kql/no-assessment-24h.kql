@@ -1,0 +1,6 @@
+// Heartbeat is a proxy for machine presence, not an Update Manager assessment result.
+// Use Resource Graph patchassessmentresources for the authoritative no-assessment view.
+Heartbeat
+| summarize LastHeartbeat=max(TimeGenerated) by Computer
+| where LastHeartbeat < ago(24h)
+| order by LastHeartbeat asc

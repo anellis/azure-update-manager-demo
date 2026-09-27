@@ -13,7 +13,7 @@ param nonProdWeeklyConfigId string
 
 resource dynamicScopeProd 'Microsoft.Maintenance/configurationAssignments@2023-04-01' = {
   name: 'dynscope-prod-monthly'
-  location: deployment().location
+  location: 'global'
   properties: {
     maintenanceConfigurationId: prodMonthlyConfigId
     resourceId: subscription().id
@@ -42,7 +42,7 @@ resource dynamicScopeProd 'Microsoft.Maintenance/configurationAssignments@2023-0
 
 resource dynamicScopeNonProd 'Microsoft.Maintenance/configurationAssignments@2023-04-01' = {
   name: 'dynscope-nonprod-weekly'
-  location: deployment().location
+  location: 'global'
   properties: {
     maintenanceConfigurationId: nonProdWeeklyConfigId
     resourceId: subscription().id

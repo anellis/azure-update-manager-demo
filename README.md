@@ -1,112 +1,117 @@
 # Azure Update Manager Demo
 
-A self-contained, Bicep-deployable demo environment for **Azure Update Manager**: mixed-OS
-compliance reporting, Customer Managed Schedules vs. Azure-orchestrated vs. Manual patch
-orchestration, scheduled maintenance with dynamic and static scoping, policy-enforced periodic
-assessment, and Azure-Resource-Graph-backed reporting — all in one resource group, deletable with
-one command.
+A reproducible Bicep deployment for demonstrating Azure Update Manager with mixed operating
+systems, patch orchestration modes, scheduled maintenance, dynamic and static scope assignments,
+policy-enforced assessment, alerting, and operational telemetry.
 
-> **⚠️ Disclaimer:** This repository is a **live-demo / proof-of-concept environment**, not a
-> production reference architecture. It intentionally trades off HA, backup, private networking,
-> and hardening for cost and setup speed. It is **not affiliated with, endorsed by, or built for
-> any specific customer** — names, tags, and schedules are generic placeholders. Review
-> [docs/real-vs-simulated.md](docs/real-vs-simulated.md) before presenting it to anyone.
+> **Demo scope:** This is a live-demo/proof-of-concept environment, not a production reference
+> architecture. It intentionally omits HA, backup, private endpoints, centralized egress, and
+> workload-aware patch validation. It is not affiliated with or built for a specific customer.
+> Review [docs/real-vs-simulated.md](docs/real-vs-simulated.md) before presenting it.
 
-See [PLAN.md](PLAN.md) for the full architecture rationale, resource inventory, deployment
-sequence, demo seeding strategy, and risk/fallback plan.
+## What gets deployed
 
-## Architecture
+- Six `Standard_B2s` VMs: three Windows Server and three Ubuntu 22.04
+- Customer Managed Schedule, Azure-orchestrated, manual, and assessment-off examples
+- Monthly Prod and weekly NonProd maintenance configurations
+- Two subscription-level dynamic assignments based on the `Environment` tag
+- One VM-level static assignment for comparison
+- Built-in periodic-assessment policy, managed identity, remediation, and scoped role assignment
+- VNet, subnet, NSG, Log Analytics workspace, DCR, Azure Monitor Agents
+- Activity Log alert, email action group, Automation Account, and demonstration runbook
 
-```mermaid
-flowchart TB
- subgraph SUB["Subscription (subscription-scope deployments)"]
-   POLICY["Policy Assignment:\nPeriodic Assessment (built-in initiative)\nscope: rg-aum-demo-eastus2"]
-   DYNSCOPE["Microsoft.Maintenance/configurationAssignments (dynamic)\nfilter: tag Environment=Prod / NonProd"]
- end
- subgraph RG["rg-aum-demo-eastus2"]
-   subgraph VMS["8 VMs (mixed OS x Environment tag)"]
-     W22P["vm-win22-prod\nCMS + PeriodicAssess ON"]
-     W22N["vm-win22-nonprod\nAzure-orchestrated + PeriodicAssess ON"]
-     W19P["vm-win19-prod\nCMS + PeriodicAssess ON"]
-     W19N["vm-win19-nonprod\nManual + PeriodicAssess OFF (noncompliant)"]
-     UBP["vm-ubuntu-prod\nCMS + PeriodicAssess ON"]
-     UBN["vm-ubuntu-nonprod\nAzure-orchestrated + PeriodicAssess ON"]
-     RHP["vm-rhel9-prod\nSTATIC assignment (contrast) + CMS"]
-     RHN["vm-rhel9-nonprod\nManual + PeriodicAssess OFF (noncompliant)"]
-   end
-   MC1["maintenanceConfiguration:\nProd-Monthly-Sunday-2AM\nCritical+Security, IfRequired reboot"]
-   MC2["maintenanceConfiguration:\nNonProd-Weekly-Friday-10PM\nCritical+Security+Other, Always reboot"]
-   STATICASSIGN["configurationAssignment (static)\non vm-rhel9-prod -> MC1"]
-   AA["Automation Account\nrunbook: PrePostPatch-Stub (PowerShell)"]
-   LAW["Log Analytics Workspace\naumdemo-law"]
-   WB["Azure Workbook\n(ARG tiles + LA tile for alert signal)"]
-   ARGQ["Resource Graph saved queries x4"]
-   AG["Action Group -> email"]
-   ALERT["Activity Log Alert:\nMicrosoft.Maintenance/applyUpdates/action = Failed"]
-   NET["VNet + subnet + NSG\n(no public IP, run-command/serial console access)"]
- end
- POLICY -.enforces.-> VMS
- DYNSCOPE -->|tag match| VMS
- MC1 --> DYNSCOPE
- MC2 --> DYNSCOPE
- STATICASSIGN --> RHP
- MC1 --> STATICASSIGN
- AA -.pre/post event hook narrated.-> MC1
- AA -.pre/post event hook narrated.-> MC2
- VMS --> NET
- ALERT --> AG
- ARGQ --> WB
- LAW --> WB
-```
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the diagram and design rationale.
+
+## Screenshots
+
+The following slots identify the real portal captures to add after a deployment. They are
+intentionally not populated with fabricated UI:
+
+| Screenshot slot | Capture after deployment |
+|---|---|
+| `docs/images/01-update-manager-machines.png` | Azure Update Manager **Machines** blade showing all six VMs and assessment status |
+| `docs/images/02-maintenance-configurations.png` | **Maintenance configurations** showing the Prod and NonProd schedules |
+| `docs/images/03-dynamic-scopes.png` | Dynamic scope details showing the `Environment` tag filters |
+| `docs/images/04-update-history.png` | Update Manager **History** after `scripts/seed-demo.ps1` completes |
+| `docs/images/05-policy-compliance.png` | Policy compliance for the periodic-assessment assignment |
+
+Capture these from the reproducer's own subscription so resource names, timestamps, status, and
+cost reflect the run being demonstrated.
 
 ## Prerequisites
 
-- Azure CLI >= 2.60 with the Bicep CLI (`az bicep install`)
-- Owner (or Contributor + User Access Administrator) on the target subscription
-- PowerShell 7+ (scripts are written for `pwsh`/Windows PowerShell 5.1)
-- Logged in: `az login --tenant 46d3e391-bd8a-44cb-a6f7-10ff4b3405ef`
-- Subscription set: `az account set --subscription c69f7b0e-bf5b-4e01-b8c9-5a9fd00dae85`
+- Azure CLI 2.60 or later with Bicep (`az bicep install`)
+- PowerShell 7+ or Bash
+- Owner, or Contributor plus User Access Administrator, on the target subscription
+- At least 12 available `standardBSFamily` vCPUs in `eastus2`
+- An Azure account authenticated to the tenant and subscription configured in
+  `infra/parameters/demo.bicepparam`
 
-## Quickstart
+## Cold deployment
+
+PowerShell prompts for missing non-secret and secret inputs:
 
 ```powershell
-./scripts/preflight-checks.ps1     # 1. verify quota, provider registration, marketplace terms
-./scripts/deploy.ps1                # 2. deploy everything (prompts for credentials + alert email)
-./scripts/seed-noncompliance.ps1    # 3. trigger assessments so compliance data shows before the demo
+az login --tenant 46d3e391-bd8a-44cb-a6f7-10ff4b3405ef
+az account set --subscription c69f7b0e-bf5b-4e01-b8c9-5a9fd00dae85
+./scripts/preflight-checks.ps1
+./scripts/deploy.ps1
+./scripts/validate.ps1
+./scripts/seed-demo.ps1
 ```
 
-Run step 3 the night before your demo — Update Manager assessment is asynchronous and can take
-10–15 minutes to populate.
+For Bash, set the required inputs first:
 
-No secrets are stored in this repo. VM credentials are supplied interactively at deploy time
-(`@secure()` parameters sourced from environment variables) — see
-[bicep/main.bicepparam](bicep/main.bicepparam) for the pattern, or substitute an Azure Key Vault
-reference for production-adjacent use.
+```bash
+export AUM_ADMIN_PUBLIC_IP_CIDR='203.0.113.10/32'
+export AUM_ALERT_EMAIL='operator@example.com'
+export AUM_ADMIN_PASSWORD='<strong-temporary-password>'
+export AUM_OWNER='<owner-tag>'
+./scripts/deploy.sh
+pwsh ./scripts/validate.ps1
+pwsh ./scripts/seed-demo.ps1
+```
 
-## Parameter reference
+To use another subscription, tenant, region, or resource group, update
+`infra/parameters/demo.bicepparam` and pass matching script parameters. Secrets are read from
+environment variables and are never committed.
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `location` | string | `eastus2` | Azure region for all resources |
-| `resourceGroupName` | string | `rg-aum-demo-eastus2` | Target resource group (created by the deployment) |
-| `namePrefix` | string | `aumdemo` | Prefix applied to generated resource names |
-| `tags` | object | `{ Project, Owner, CostCenter }` | Tags applied to all resources |
-| `adminUsername` | string | *(required)* | Local administrator username for all VMs |
-| `adminPassword` | `@secure()` string | *(required)* | Windows admin password / Linux password-auth fallback |
-| `sshPublicKey` | `@secure()` string | `''` | SSH public key for Linux VMs when `linuxAuthenticationType = sshPublicKey` |
-| `linuxAuthenticationType` | string | `sshPublicKey` | `sshPublicKey` or `password` |
-| `alertEmail` | string | *(required)* | Notification target for the failed-patch-install alert |
-| `vmSize` | string | `Standard_B2s` | VM size for all 8 demo VMs |
-| `windowsImageVersion` | string | `latest` | Pin to an older build so pending updates exist for the demo |
-| `ubuntuImageVersion` | string | `latest` | Pin to an older build so pending updates exist for the demo |
-| `rhelImageVersion` | string | `latest` | Pin to an older build so pending updates exist for the demo |
+## Observed deployment time
 
-## Cost estimate
+The first cold run began at **2026-09-21 22:35 EDT**. The core network, six VMs, maintenance
+configurations, alert, and Automation resources were provisioned in approximately **17 minutes**.
+The first end-to-end run took **64 minutes** through the final successful policy remediation
+because several template/API mismatches were diagnosed and repaired in place. Those fixes are now
+in the repository. For a clean run, budget **25–35 minutes**, including asynchronous extension and
+policy convergence, then another **10–30 minutes** for assessment/history data to appear.
 
-~$21–26/day while all 8 VMs are running (see [PLAN.md](PLAN.md) for the per-resource breakdown).
-Everything else (maintenance configs, policy, alerting, workbook, Resource Graph queries) is free
-or near-free. **Stop-deallocate or delete VMs outside your rehearsal/demo window** to stay under
-budget — see teardown below.
+## Observed cost
+
+Azure Cost Management reported **$8.03 USD actual cost** for
+`rg-aum-demo-eastus2` from **2026-09-22 through 2026-09-27**:
+
+- Deployment/running day: **$4.61**
+- Subsequent mostly deallocated days: approximately **$0.74/day**
+- Partial day on September 27: **$0.38**
+
+The observed total includes compute, managed disks, Log Analytics, bandwidth, and enabled Defender
+meter records associated with the resource group. Prices and subscription benefits vary. The VMs
+are currently deallocated; disks, monitoring, and Defender can still accrue charges. Delete the
+environment when finished rather than relying only on deallocation.
+
+## Validate all Bicep
+
+```powershell
+$env:AUM_ADMIN_PUBLIC_IP_CIDR = '203.0.113.10/32'
+$env:AUM_ALERT_EMAIL = 'ci@example.invalid'
+$env:AUM_ADMIN_PASSWORD = 'Validation-Only-Password-123!'
+Get-ChildItem -Recurse -Filter *.bicep |
+  ForEach-Object { az bicep build --file $_.FullName --stdout | Out-Null }
+Get-ChildItem -Recurse -Filter *.bicepparam |
+  ForEach-Object { az bicep build-params --file $_.FullName --stdout | Out-Null }
+```
+
+CI builds every source and parameter file in both `infra/` and `bicep/`.
 
 ## Teardown
 
@@ -114,17 +119,24 @@ budget — see teardown below.
 ./scripts/teardown.ps1
 ```
 
-Deletes the entire `rg-aum-demo-eastus2` resource group after a typed confirmation. See
-[docs/TEARDOWN.md](docs/TEARDOWN.md) for partial-teardown (stop VMs only) and verification steps.
+Teardown removes subscription-level configuration assignments, policy-created role assignments,
+policy assignments, and then the resource group. It waits and verifies deletion by default. See
+[docs/TEARDOWN.md](docs/TEARDOWN.md) before running unattended.
 
-## Repo layout
+## Repository layout
 
-- `bicep/` — Bicep modules and orchestrator (`main.bicep`)
-- `automation/` — Automation Account runbook stub source
-- `scripts/` — deployment, seeding, teardown, and preflight scripts
-- `docs/` — demo talk track, architecture detail, troubleshooting, teardown, real-vs-simulated matrix
-- `.github/workflows/` — CI validation (Bicep build + what-if) on pull requests
+- `infra/` - canonical deployed Bicep entry point and modules
+- `bicep/` - expanded reference implementation, kept compiler-clean
+- `scripts/` - preflight, deployment, validation, seeding, and teardown
+- `kql/` - saved query sources used by the seeding script
+- `automation/` - pre/post patch demonstration runbook
+- `docs/` - architecture, demo script, troubleshooting, teardown, and scope disclosures
 
-## Contributing
+## More information
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for branch conventions and how to propose changes.
+- [Architecture and decisions](docs/ARCHITECTURE.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Teardown and verification](docs/TEARDOWN.md)
+- [Demo script](docs/DEMO-SCRIPT.md)
+- [Real versus simulated features](docs/real-vs-simulated.md)
+- [Contributing](CONTRIBUTING.md)

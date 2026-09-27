@@ -12,15 +12,21 @@ function Add-Check([string]$Check, [bool]$Passed, [string]$Details) {
 }
 
 $vms = @(az vm list --resource-group $ResourceGroupName -o json | ConvertFrom-Json)
+if ($vms.Count -eq 1 -and $vms[0] -is [array]) { $vms = @($vms[0]) }
 foreach ($vm in $vms) {
-  $power = az vm get-instance-view -g $ResourceGroupName -n $vm.name --query "instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]" -o tsv
+  $power = az vm get-instance-view -g $ResourceGroupName -n "$($vm.name)" --query "instanceView.statuses[?starts_with(code, 'PowerState/')].displayStatus | [0]" -o tsv
   Add-Check "VM running: $($vm.name)" ($power -eq 'VM running') $power
 
-  $extensions = @(az vm extension list -g $ResourceGroupName --vm-name $vm.name -o json | ConvertFrom-Json)
+  $extensions = @(az vm extension list -g $ResourceGroupName --vm-name "$($vm.name)" -o json | ConvertFrom-Json)
   $failed = @($extensions | Where-Object { $_.provisioningState -ne 'Succeeded' })
   Add-Check "Extensions succeeded: $($vm.name)" ($failed.Count -eq 0 -and $extensions.Count -gt 0) ("$($extensions.Count) extension(s); failed=$($failed.Count)")
 
-  $assessment = az vm show -g $ResourceGroupName -n $vm.name --query "coalesce(properties.osProfile.windowsConfiguration.patchSettings.assessmentMode, properties.osProfile.linuxConfiguration.patchSettings.assessmentMode)" -o tsv
+  $assessmentQuery = if ($vm.storageProfile.osDisk.osType -eq 'Windows') {
+    'osProfile.windowsConfiguration.patchSettings.assessmentMode'
+  } else {
+    'osProfile.linuxConfiguration.patchSettings.assessmentMode'
+  }
+  $assessment = az vm show -g $ResourceGroupName -n "$($vm.name)" --query $assessmentQuery -o tsv
   Add-Check "Assessment mode present: $($vm.name)" ($assessment -in @('AutomaticByPlatform','ImageDefault')) $assessment
 }
 
