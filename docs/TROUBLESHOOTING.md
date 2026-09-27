@@ -16,6 +16,30 @@ az deployment operation sub list --name '<deployment-name>' `
   -o table
 ```
 
+## Scripts fail to run: "running scripts is disabled on this system"
+
+Windows blocks unsigned PowerShell scripts by default, so `./scripts/deploy.ps1`,
+`./scripts/validate.ps1`, `./scripts/seed-demo.ps1`, and `./scripts/teardown.ps1` can fail with
+`UnauthorizedAccess` / `PSSecurityException` before any Azure call happens.
+
+Run the script for a single process without changing machine policy:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\teardown.ps1 -Force
+```
+
+Or allow local scripts for your user only:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+If the files came from a zip download, also unblock them:
+
+```powershell
+Get-ChildItem .\scripts\*.ps1 | Unblock-File
+```
+
 ## VM extension provisioning fails
 
 **Symptoms**

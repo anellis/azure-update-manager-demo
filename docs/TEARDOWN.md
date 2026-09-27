@@ -28,6 +28,13 @@ Both scripts require the resource group name as typed confirmation. For unattend
 FORCE=true ./scripts/teardown.sh
 ```
 
+If Windows blocks the script with `running scripts is disabled on this system`, run it for a
+single process instead:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\teardown.ps1 -Force
+```
+
 By default, teardown waits for resource-group deletion and verifies that it no longer exists. Use
 `-NoWait` in PowerShell or `NO_WAIT=true` in Bash only when asynchronous deletion is intentional.
 

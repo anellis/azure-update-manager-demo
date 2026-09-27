@@ -47,15 +47,14 @@ done
 
 for assignment_name in dynamic-0 dynamic-1 dynscope-prod-monthly dynscope-nonprod-weekly; do
   assignment_id="${subscription_scope}/providers/Microsoft.Maintenance/configurationAssignments/${assignment_name}"
-  assignment_json="$(az resource show --ids "${assignment_id}" --api-version 2023-04-01 -o json 2>/dev/null)" || {
-    status=$?
-    [[ ${status} -eq 3 ]] && continue
-    echo "Failed to inspect ${assignment_id}." >&2
-    exit "${status}"
-  }
+  if ! az resource show --ids "${assignment_id}" --api-version 2023-04-01 -o none 2>/dev/null; then
+    echo "No configuration assignment named ${assignment_name}; skipping."
+    continue
+  fi
 
-  targets_group="$(az resource show --ids "${assignment_id}" --api-version 2023-04-01 --query "contains(properties.filter.resourceGroups, '${RESOURCE_GROUP_NAME}')" -o tsv)"
-  maintenance_id="$(az resource show --ids "${assignment_id}" --api-version 2023-04-01 --query properties.maintenanceConfigurationId -o tsv)"
+  # A null filter makes contains() fail, which is treated the same as a non-matching assignment.
+  targets_group="$(az resource show --ids "${assignment_id}" --api-version 2023-04-01 --query "contains(properties.filter.resourceGroups, '${RESOURCE_GROUP_NAME}')" -o tsv 2>/dev/null || echo false)"
+  maintenance_id="$(az resource show --ids "${assignment_id}" --api-version 2023-04-01 --query properties.maintenanceConfigurationId -o tsv 2>/dev/null || echo '')"
   if [[ "${targets_group}" == "true" || "${maintenance_id}" == "${resource_group_scope}/"* ]]; then
     echo "Removing subscription-scoped configuration assignment ${assignment_id}"
     az resource delete --ids "${assignment_id}" --api-version 2023-04-01

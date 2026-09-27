@@ -15,6 +15,26 @@ function Assert-AzSuccess([string]$Operation) {
     }
 }
 
+# Azure CLI writes to stderr for expected "not found" results. Windows PowerShell converts native
+# stderr into a terminating error while ErrorActionPreference is Stop, so probes run through here.
+function Invoke-AzProbe([string[]]$Arguments) {
+    $previousPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & az @Arguments 2>&1
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+    }
+
+    $standardOutput = @($output | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] })
+    return [pscustomobject]@{
+        ExitCode = $exitCode
+        Output   = ($standardOutput -join [Environment]::NewLine)
+    }
+}
+
 az account set --subscription $SubscriptionId
 Assert-AzSuccess 'selecting the target subscription'
 
@@ -71,13 +91,13 @@ $configurationAssignmentNames = @(
 
 foreach ($assignmentName in $configurationAssignmentNames) {
     $assignmentId = "$subscriptionScope/providers/Microsoft.Maintenance/configurationAssignments/$assignmentName"
-    $assignmentJson = az resource show --ids $assignmentId --api-version 2023-04-01 -o json 2>$null
-    if ($LASTEXITCODE -eq 3) {
+    $probe = Invoke-AzProbe @('resource', 'show', '--ids', $assignmentId, '--api-version', '2023-04-01', '-o', 'json')
+    if ($probe.ExitCode -ne 0 -or -not $probe.Output) {
+        Write-Host "No configuration assignment named $assignmentName; skipping." -ForegroundColor DarkGray
         continue
     }
-    Assert-AzSuccess "reading configuration assignment $assignmentId"
 
-    $assignment = $assignmentJson | ConvertFrom-Json
+    $assignment = $probe.Output | ConvertFrom-Json
     $targetsResourceGroup = @($assignment.properties.filter.resourceGroups) -contains $ResourceGroupName
     $usesDemoConfiguration = $assignment.properties.maintenanceConfigurationId -like "$resourceGroupScope/*"
     if ($targetsResourceGroup -or $usesDemoConfiguration) {
